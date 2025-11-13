@@ -4,11 +4,20 @@ import { validateJsonBody } from '../../shared/validation/validation';
 import { createUserRepository } from '../users/users.repository';
 import { createUnauthorizedError } from './auth.errors';
 import { arePasswordsMatching, createJwtToken } from './auth.services';
+import { createOidcRoutes } from './oidc/oidc.routes';
 
 export { registerAuthRoutes };
 
 function registerAuthRoutes({ app }: { app: ServerInstance }) {
   setupLoginRoute({ app });
+  setupOidcRoutes({ app });
+}
+
+function setupOidcRoutes({ app }: { app: ServerInstance }) {
+  app.route('/api/auth/oidc', (c) => {
+    const config = c.get('config');
+    return createOidcRoutes({ config });
+  });
 }
 
 function setupLoginRoute({ app }: { app: ServerInstance }) {
