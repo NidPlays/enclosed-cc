@@ -10,6 +10,7 @@ import { castArray, sample } from 'lodash-es';
 import { type Component, createSignal, onMount, Show } from 'solid-js';
 import { login } from '../auth.services';
 import { authStore } from '../auth.store';
+import { OidcLoginButton } from '../oidc/oidc-login-button';
 
 const quotations = [
   {
@@ -167,6 +168,8 @@ export const LoginPage: Component = () => {
             </Show>
 
           </form>
+
+          <OidcLoginButton />
         </div>
       </div>
     </div>
