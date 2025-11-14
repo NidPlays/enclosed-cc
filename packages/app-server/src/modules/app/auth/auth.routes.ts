@@ -4,11 +4,20 @@ import { validateJsonBody } from '../../shared/validation/validation';
 import { createUserRepository } from '../users/users.repository';
 import { createUnauthorizedError } from './auth.errors';
 import { arePasswordsMatching, createJwtToken } from './auth.services';
+import { createOidcRoutes } from './oidc/oidc.routes';
 
 export { registerAuthRoutes };
 
 function registerAuthRoutes({ app }: { app: ServerInstance }) {
   setupLoginRoute({ app });
+  setupOidcRoutes({ app });
+}
+
+function setupOidcRoutes({ app }: { app: ServerInstance }) {
+  app.route('/api/auth/oidc', (c) => {
+    const config = c.get('config');
+    return createOidcRoutes({ config });
+  });
 }
 
 function setupLoginRoute({ app }: { app: ServerInstance }) {
@@ -20,6 +29,18 @@ function setupLoginRoute({ app }: { app: ServerInstance }) {
     })),
     async (context) => {
       const config = context.get('config');
+
+      // Reject password login if in OIDC-only mode
+      if (config.authentication.oidc.onlyOidc) {
+        return context.json(
+          {
+            error: 'Password authentication is disabled. Please use SSO login.',
+            code: 'auth.password_disabled',
+          },
+          403,
+        );
+      }
+
       const { email, password } = context.req.valid('json');
 
       const { getUserByEmail } = createUserRepository({ config });

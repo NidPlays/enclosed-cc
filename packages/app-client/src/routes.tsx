@@ -1,5 +1,6 @@
 import { A, type RouteDefinition } from '@solidjs/router';
 import { LoginPage } from './modules/auth/pages/login.page';
+import { OidcCallbackPage } from './modules/auth/oidc/oidc-callback.page';
 import { getConfig } from './modules/config/config.provider';
 import { NOTE_ID_REGEX } from './modules/notes/notes.constants';
 import { buildViewNotePagePath } from './modules/notes/notes.models';
@@ -49,6 +50,10 @@ export function getRoutes(): RouteDefinition[] {
     {
       path: '/login',
       component: LoginPage,
+    },
+    {
+      path: '/auth/oidc/callback',
+      component: OidcCallbackPage,
     },
   ];
 }

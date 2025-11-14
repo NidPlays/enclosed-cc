@@ -252,6 +252,75 @@ export const configDefinition = {
       default: '',
       env: 'AUTHENTICATION_USERS',
     },
+    oidc: {
+      isEnabled: {
+        doc: 'Whether to enable OIDC authentication',
+        schema: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .transform(x => x === 'true')
+          .pipe(z.boolean()),
+        default: 'false',
+        env: 'AUTHENTICATION_OIDC_ENABLED',
+      },
+      onlyOidc: {
+        doc: 'Whether to use OIDC-only mode (disables email/password authentication)',
+        schema: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .transform(x => x === 'true')
+          .pipe(z.boolean()),
+        default: 'false',
+        env: 'AUTHENTICATION_OIDC_ONLY',
+      },
+      issuer: {
+        doc: 'The OIDC issuer URL (e.g., https://accounts.google.com)',
+        schema: z.string().url().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_ISSUER',
+      },
+      clientId: {
+        doc: 'The OIDC client ID (public client, no secret required)',
+        schema: z.string().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_CLIENT_ID',
+      },
+      redirectUri: {
+        doc: 'The OIDC redirect URI (e.g., https://enclosed.example.com/api/auth/oidc/callback)',
+        schema: z.string().url().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_REDIRECT_URI',
+      },
+      scopes: {
+        doc: 'The OIDC scopes to request (comma-separated)',
+        schema: z
+          .string()
+          .transform(value => value.split(',').map(s => s.trim()).filter(Boolean)),
+        default: 'openid,profile,email',
+        env: 'AUTHENTICATION_OIDC_SCOPES',
+      },
+      autoRegister: {
+        doc: 'Whether to automatically register users from OIDC claims',
+        schema: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .transform(x => x === 'true')
+          .pipe(z.boolean()),
+        default: 'true',
+        env: 'AUTHENTICATION_OIDC_AUTO_REGISTER',
+      },
+      allowedDomains: {
+        doc: 'Comma-separated list of allowed email domains for OIDC users (empty = allow all)',
+        schema: z
+          .string()
+          .transform(value => value ? value.split(',').map(d => d.trim().toLowerCase()).filter(Boolean) : []),
+        default: '',
+        env: 'AUTHENTICATION_OIDC_ALLOWED_DOMAINS',
+      },
+    },
   },
 } as const satisfies ConfigDefinition;
 
