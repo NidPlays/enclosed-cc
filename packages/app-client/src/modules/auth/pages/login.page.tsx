@@ -7,10 +7,11 @@ import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/component
 import { safely } from '@corentinth/chisels';
 import { useNavigate } from '@solidjs/router';
 import { castArray, sample } from 'lodash-es';
-import { type Component, createSignal, onMount, Show } from 'solid-js';
+import { type Component, createEffect, createSignal, onMount, Show } from 'solid-js';
 import { login } from '../auth.services';
 import { authStore } from '../auth.store';
 import { OidcLoginButton } from '../oidc/oidc-login-button';
+import { getOidcConfig } from '../oidc/oidc.services';
 
 const quotations = [
   {
@@ -44,6 +45,7 @@ export const LoginPage: Component = () => {
   const [getError, setError] = createSignal<{ message: string; details?: string } | null>(null);
   const [getEmail, setEmail] = createSignal('');
   const [getPassword, setPassword] = createSignal('');
+  const [isOnlyOidc, setIsOnlyOidc] = createSignal(false);
   const { t } = useI18n();
 
   const config = getConfig();
@@ -52,6 +54,15 @@ export const LoginPage: Component = () => {
   onMount(() => {
     if (!config.isAuthenticationRequired || authStore.getIsAuthenticated()) {
       navigate('/');
+    }
+  });
+
+  createEffect(async () => {
+    try {
+      const oidcConfig = await getOidcConfig();
+      setIsOnlyOidc(oidcConfig.onlyOidc);
+    } catch (error) {
+      console.error('Failed to fetch OIDC config:', error);
     }
   });
 
@@ -111,65 +122,81 @@ export const LoginPage: Component = () => {
             {t('login.title')}
           </h1>
           <div class="text-muted-foreground text-pretty">
-            {t('login.description')}
+            {isOnlyOidc()
+              ? t('login.oidc-only-description', { defaultValue: 'Sign in with your organization account to continue.' })
+              : t('login.description')}
           </div>
 
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
-          }}
-          >
-            <TextFieldRoot class="my-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.email')}
-              </TextFieldLabel>
-              <TextField
-                type="email"
-                placeholder={t('login.email')}
-                onInput={(e) => {
-                  setEmail(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getEmail()}
-              />
-            </TextFieldRoot>
+          <Show when={isOnlyOidc()} fallback={
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+            >
+              <TextFieldRoot class="my-4">
+                <TextFieldLabel class="sr-only">
+                  {t('login.email')}
+                </TextFieldLabel>
+                <TextField
+                  type="email"
+                  placeholder={t('login.email')}
+                  onInput={(e) => {
+                    setEmail(e.currentTarget.value);
+                    setError(null);
+                  }}
+                  value={getEmail()}
+                />
+              </TextFieldRoot>
 
-            <TextFieldRoot class="mt-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.password')}
-              </TextFieldLabel>
-              <TextField
-                type="password"
-                placeholder={t('login.password')}
-                onInput={(e) => {
-                  setPassword(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getPassword()}
-              />
-            </TextFieldRoot>
+              <TextFieldRoot class="mt-4">
+                <TextFieldLabel class="sr-only">
+                  {t('login.password')}
+                </TextFieldLabel>
+                <TextField
+                  type="password"
+                  placeholder={t('login.password')}
+                  onInput={(e) => {
+                    setPassword(e.currentTarget.value);
+                    setError(null);
+                  }}
+                  value={getPassword()}
+                />
+              </TextFieldRoot>
 
-            <Button class="mt-4 w-full" variant="default" type="submit">
-              {t('login.submit')}
-            </Button>
+              <Button class="mt-4 w-full" variant="default" type="submit">
+                {t('login.submit')}
+              </Button>
 
-            <p class="text-center text-muted-foreground text-sm mt-4">
-              {castArray(t('login.footer')).map(text => (<div>{text}</div>))}
-            </p>
+              <p class="text-center text-muted-foreground text-sm mt-4">
+                {castArray(t('login.footer')).map(text => (<div>{text}</div>))}
+              </p>
 
-            <Show when={getError()}>
-              {error => (
-                <Alert variant="destructive" class="mt-4">
-                  <AlertDescription>
-                    {error().message}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </Show>
+              <Show when={getError()}>
+                {error => (
+                  <Alert variant="destructive" class="mt-4">
+                    <AlertDescription>
+                      {error().message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </Show>
 
-          </form>
+            </form>
+          }>
+            <div class="mt-4">
+              <Show when={getError()}>
+                {error => (
+                  <Alert variant="destructive" class="mb-4">
+                    <AlertDescription>
+                      {error().message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </Show>
+            </div>
+          </Show>
 
-          <OidcLoginButton />
+          <OidcLoginButton onlyOidc={isOnlyOidc()} />
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ export { initiateOidcLogin, handleOidcCallback, getOidcConfig };
 
 type OidcConfig = {
   enabled: boolean;
+  onlyOidc: boolean;
   issuer?: string;
   clientId?: string;
   scopes?: string[];

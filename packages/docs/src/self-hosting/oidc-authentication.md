@@ -27,6 +27,7 @@ To enable OIDC authentication, configure the following environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `AUTHENTICATION_OIDC_ONLY` | Enable OIDC-only mode (disables email/password login) | `false` |
 | `AUTHENTICATION_OIDC_SCOPES` | Comma-separated list of OIDC scopes | `openid,profile,email` |
 | `AUTHENTICATION_OIDC_AUTO_REGISTER` | Auto-create users from OIDC claims | `true` |
 | `AUTHENTICATION_OIDC_ALLOWED_DOMAINS` | Restrict to specific email domains (comma-separated) | *(empty - allow all)* |
@@ -157,9 +158,11 @@ AUTHENTICATION_USERS=alice@example.com:,bob@example.com:
 
 Note: The colon after the email is required, but the password hash can be empty for OIDC-only users.
 
-## Hybrid Authentication
+## Authentication Modes
 
-OIDC authentication works alongside traditional email/password authentication. Users can choose their preferred login method on the login page.
+### Hybrid Authentication (Default)
+
+By default, OIDC authentication works alongside traditional email/password authentication. Users can choose their preferred login method on the login page.
 
 To use both methods:
 ```bash
@@ -174,6 +177,31 @@ AUTHENTICATION_OIDC_REDIRECT_URI=https://your-domain.com/api/auth/oidc/callback
 ```
 
 The login page will display both the email/password form and a "Sign in with SSO" button.
+
+### OIDC-Only Mode
+
+For organizations that want to enforce SSO-only authentication, you can disable traditional email/password login entirely:
+
+```bash
+AUTHENTICATION_OIDC_ENABLED=true
+AUTHENTICATION_OIDC_ONLY=true
+AUTHENTICATION_OIDC_ISSUER=https://your-pocketid.example.com
+AUTHENTICATION_OIDC_CLIENT_ID=your-client-id
+AUTHENTICATION_OIDC_REDIRECT_URI=https://enclosed.example.com/api/auth/oidc/callback
+```
+
+When `AUTHENTICATION_OIDC_ONLY=true`:
+- The email/password form is completely hidden from the login page
+- Only the "Sign in with SSO" button is displayed
+- API endpoint `/api/auth/login` rejects password authentication requests with HTTP 403
+- Users must authenticate via your OIDC provider
+
+**Benefits of OIDC-only mode:**
+- Enforces centralized authentication through your identity provider
+- Prevents password-based authentication bypass attempts
+- Simplifies user experience with a single login method
+- Leverages your IdP's access control (groups, MFA, conditional access, etc.)
+- Ideal for PocketID, Keycloak, Azure AD with group-based access control
 
 ## Docker Example
 

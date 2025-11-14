@@ -148,6 +148,7 @@ function createOidcRoutes({ config }: { config: Config }) {
   oidcRoutes.get('/config', (c) => {
     return c.json({
       enabled: config.authentication.oidc.isEnabled,
+      onlyOidc: config.authentication.oidc.onlyOidc,
       issuer: config.authentication.oidc.issuer,
       clientId: config.authentication.oidc.clientId,
       scopes: config.authentication.oidc.scopes,

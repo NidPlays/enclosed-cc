@@ -264,6 +264,17 @@ export const configDefinition = {
         default: 'false',
         env: 'AUTHENTICATION_OIDC_ENABLED',
       },
+      onlyOidc: {
+        doc: 'Whether to use OIDC-only mode (disables email/password authentication)',
+        schema: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .transform(x => x === 'true')
+          .pipe(z.boolean()),
+        default: 'false',
+        env: 'AUTHENTICATION_OIDC_ONLY',
+      },
       issuer: {
         doc: 'The OIDC issuer URL (e.g., https://accounts.google.com)',
         schema: z.string().url().optional(),

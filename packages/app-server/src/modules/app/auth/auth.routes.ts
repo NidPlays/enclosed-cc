@@ -29,6 +29,18 @@ function setupLoginRoute({ app }: { app: ServerInstance }) {
     })),
     async (context) => {
       const config = context.get('config');
+
+      // Reject password login if in OIDC-only mode
+      if (config.authentication.oidc.onlyOidc) {
+        return context.json(
+          {
+            error: 'Password authentication is disabled. Please use SSO login.',
+            code: 'auth.password_disabled',
+          },
+          403,
+        );
+      }
+
       const { email, password } = context.req.valid('json');
 
       const { getUserByEmail } = createUserRepository({ config });
