@@ -206,6 +206,34 @@ export const configDefinition = {
       default: '/',
       env: 'PUBLIC_VIEW_NOTE_PATH_PREFIX',
     },
+    isPasswordLoginEnabled: {
+      doc: 'Whether to allow users to log in with an email and password (defined in `AUTHENTICATION_USERS`), only used when authentication is required',
+      schema: z
+        .string()
+        .trim()
+        .toLowerCase()
+        .transform(x => x === 'true')
+        .pipe(z.boolean()),
+      default: 'true',
+      env: 'AUTHENTICATION_PASSWORD_LOGIN_ENABLED',
+    },
+    isOidcLoginEnabled: {
+      doc: 'Whether to allow users to log in with a generic OpenID Connect provider (like Pocket ID, Authelia, Authentik, Keycloak, ...), only used when authentication is required',
+      schema: z
+        .string()
+        .trim()
+        .toLowerCase()
+        .transform(x => x === 'true')
+        .pipe(z.boolean()),
+      default: 'false',
+      env: 'AUTHENTICATION_OIDC_ENABLED',
+    },
+    oidcProviderName: {
+      doc: 'The name of the OpenID Connect provider, displayed in the login button',
+      schema: z.string(),
+      default: 'SSO',
+      env: 'AUTHENTICATION_OIDC_PROVIDER_NAME',
+    },
   },
   authentication: {
     jwtSecret: {
@@ -251,6 +279,64 @@ export const configDefinition = {
         ),
       default: '',
       env: 'AUTHENTICATION_USERS',
+    },
+    oidc: {
+      issuerUrl: {
+        doc: 'The issuer URL of the OpenID Connect provider, used to discover its configuration through `/.well-known/openid-configuration` (like `https://id.example.com`)',
+        schema: z.string().url().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_ISSUER_URL',
+      },
+      clientId: {
+        doc: 'The client ID of the application registered in the OpenID Connect provider',
+        schema: z.string().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_CLIENT_ID',
+      },
+      clientSecret: {
+        doc: 'The client secret of the application registered in the OpenID Connect provider, leave empty for public clients (PKCE is always used)',
+        schema: z.string().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_CLIENT_SECRET',
+      },
+      tokenEndpointAuthMethod: {
+        doc: 'How the client secret is sent to the token endpoint of the OpenID Connect provider, either `client_secret_basic` (in the Authorization header) or `client_secret_post` (in the request body)',
+        schema: z.enum(['client_secret_basic', 'client_secret_post']),
+        default: 'client_secret_basic',
+        env: 'AUTHENTICATION_OIDC_TOKEN_ENDPOINT_AUTH_METHOD',
+      },
+      redirectUri: {
+        doc: 'The callback URL to register in the OpenID Connect provider, should be `<your-enclosed-url>/api/auth/oidc/callback`. If not set, it is derived from the incoming request URL, which may be wrong behind a reverse proxy',
+        schema: z.string().url().optional(),
+        default: undefined,
+        env: 'AUTHENTICATION_OIDC_REDIRECT_URI',
+      },
+      scopes: {
+        doc: 'The space-separated scopes requested to the OpenID Connect provider',
+        schema: z.string(),
+        default: 'openid email profile',
+        env: 'AUTHENTICATION_OIDC_SCOPES',
+      },
+      allowedEmails: {
+        doc: 'Comma-separated list of emails allowed to log in through the OpenID Connect provider (case insensitive). If empty, every user authenticated by the provider is allowed',
+        schema: z
+          .union([z.string(), z.array(z.string())])
+          .transform(value => (typeof value === 'string' ? value.split(',') : value))
+          .transform(values => values.map(value => value.trim().toLowerCase()).filter(Boolean)),
+        default: '',
+        env: 'AUTHENTICATION_OIDC_ALLOWED_EMAILS',
+      },
+      isUnverifiedEmailAllowed: {
+        doc: 'Whether to accept emails not marked as verified by the OpenID Connect provider (`email_verified` claim) when checking the allowed emails list. Only enable it if users cannot change their email on the provider side (for Pocket ID, prefer enabling the "Emails verified" setting)',
+        schema: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .transform(x => x === 'true')
+          .pipe(z.boolean()),
+        default: 'false',
+        env: 'AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS',
+      },
     },
   },
 } as const satisfies ConfigDefinition;

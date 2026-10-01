@@ -43,8 +43,12 @@
     "email": "Email",
     "password": "Password",
     "submit": "Login",
+    "or": "or",
+    "oidc-submit": "Login with {{ provider }}",
     "errors": {
       "invalid-credentials": "Invalid email or password.",
+      "oidc-access-denied": "Your account is not allowed to access this instance.",
+      "oidc-failed": "The login with the identity provider failed. Please try again.",
       "unknown": "An unknown error occurred. Please try again later."
     },
     "footer": [

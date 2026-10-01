@@ -8,7 +8,8 @@ import { safely } from '@corentinth/chisels';
 import { useNavigate } from '@solidjs/router';
 import { castArray, sample } from 'lodash-es';
 import { type Component, createSignal, onMount, Show } from 'solid-js';
-import { login } from '../auth.services';
+import { getOidcCallbackResult } from '../auth.models';
+import { getOidcLoginUrl, login } from '../auth.services';
 import { authStore } from '../auth.store';
 
 const quotations = [
@@ -48,9 +49,23 @@ export const LoginPage: Component = () => {
   const config = getConfig();
   const navigate = useNavigate();
 
-  onMount(() => {
+  onMount(async () => {
+    const { accessToken, oidcError } = getOidcCallbackResult({ hash: window.location.hash, search: window.location.search });
+
+    if (accessToken) {
+      await authStore.setAccessToken({ accessToken });
+      window.location.href = authStore.getRedirectUrl() ?? '/';
+      return;
+    }
+
     if (!config.isAuthenticationRequired || authStore.getIsAuthenticated()) {
       navigate('/');
+      return;
+    }
+
+    if (oidcError) {
+      setError({ message: oidcError === 'access-denied' ? t('login.errors.oidc-access-denied') : t('login.errors.oidc-failed') });
+      window.history.replaceState(null, '', window.location.pathname);
     }
   });
 
@@ -118,39 +133,64 @@ export const LoginPage: Component = () => {
             onSubmit();
           }}
           >
-            <TextFieldRoot class="my-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.email')}
-              </TextFieldLabel>
-              <TextField
-                type="email"
-                placeholder={t('login.email')}
-                onInput={(e) => {
-                  setEmail(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getEmail()}
-              />
-            </TextFieldRoot>
+            <Show when={config.isPasswordLoginEnabled}>
+              <TextFieldRoot class="my-4">
+                <TextFieldLabel class="sr-only">
+                  {t('login.email')}
+                </TextFieldLabel>
+                <TextField
+                  type="email"
+                  placeholder={t('login.email')}
+                  onInput={(e) => {
+                    setEmail(e.currentTarget.value);
+                    setError(null);
+                  }}
+                  value={getEmail()}
+                />
+              </TextFieldRoot>
 
-            <TextFieldRoot class="mt-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.password')}
-              </TextFieldLabel>
-              <TextField
-                type="password"
-                placeholder={t('login.password')}
-                onInput={(e) => {
-                  setPassword(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getPassword()}
-              />
-            </TextFieldRoot>
+              <TextFieldRoot class="mt-4">
+                <TextFieldLabel class="sr-only">
+                  {t('login.password')}
+                </TextFieldLabel>
+                <TextField
+                  type="password"
+                  placeholder={t('login.password')}
+                  onInput={(e) => {
+                    setPassword(e.currentTarget.value);
+                    setError(null);
+                  }}
+                  value={getPassword()}
+                />
+              </TextFieldRoot>
 
-            <Button class="mt-4 w-full" variant="default" type="submit">
-              {t('login.submit')}
-            </Button>
+              <Button class="mt-4 w-full" variant="default" type="submit">
+                {t('login.submit')}
+              </Button>
+            </Show>
+
+            <Show when={config.isOidcLoginEnabled}>
+              <Show when={config.isPasswordLoginEnabled}>
+                <div class="flex items-center gap-2 my-4 text-muted-foreground text-sm">
+                  <div class="h-px flex-1 bg-border"></div>
+                  {t('login.or')}
+                  <div class="h-px flex-1 bg-border"></div>
+                </div>
+              </Show>
+
+              <Button
+                as="a"
+                href={getOidcLoginUrl()}
+                // Full page navigation to the api, not handled by the client router
+                rel="external"
+                class="w-full"
+                classList={{ 'mt-4': !config.isPasswordLoginEnabled }}
+                variant={config.isPasswordLoginEnabled ? 'secondary' : 'default'}
+              >
+                <div class="i-tabler-login-2 mr-2"></div>
+                {t('login.oidc-submit', { provider: config.oidcProviderName })}
+              </Button>
+            </Show>
 
             <p class="text-center text-muted-foreground text-sm mt-4">
               {castArray(t('login.footer')).map(text => (<div>{text}</div>))}

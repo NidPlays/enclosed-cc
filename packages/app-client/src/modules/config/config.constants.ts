@@ -10,4 +10,7 @@ export const buildTimeConfig: Config = {
   defaultNoteNoExpiration: import.meta.env.VITE_DEFAULT_NOTE_NO_EXPIRATION === 'true',
   isSettingNoExpirationAllowed: import.meta.env.VITE_IS_SETTING_NO_EXPIRATION_ALLOWED === 'true',
   viewNotePathPrefix: import.meta.env.VITE_VIEW_NOTE_PATH_PREFIX,
+  isPasswordLoginEnabled: import.meta.env.VITE_IS_PASSWORD_LOGIN_ENABLED !== 'false',
+  isOidcLoginEnabled: import.meta.env.VITE_IS_OIDC_LOGIN_ENABLED === 'true',
+  oidcProviderName: import.meta.env.VITE_OIDC_PROVIDER_NAME ?? 'SSO',
 };
