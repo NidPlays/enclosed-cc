@@ -23,6 +23,37 @@
   <a href="https://docs.enclosed.cc/self-hosting/docker">Self-hosting</a>
 </p>
 
+> [!NOTE]
+> **This is a fork of [CorentinTh/enclosed](https://github.com/CorentinTh/enclosed).** It follows upstream and adds the features listed below. Everything else in this README describes upstream Enclosed: the demo, docs and CLI links point to the upstream project.
+
+## What this fork adds
+
+- **OIDC / SSO login**: log in with any OpenID Connect provider ([Pocket ID](https://pocket-id.org), Authelia, Authentik, Keycloak, Zitadel, Google, ...), alongside the email/password login or instead of it.
+  - Authorization code flow with PKCE, state and nonce, with the provider discovered from its issuer URL.
+  - Works with confidential clients (client secret) and public clients (no secret).
+  - OIDC-only mode: `AUTHENTICATION_PASSWORD_LOGIN_ENABLED=false` hides the password form and rejects password logins.
+  - Access control: restrict access in your provider (for example Pocket ID's *Allowed User Groups*), or use the optional email and email-domain allowlists, which only trust provider-verified emails.
+  - Tested against a real Pocket ID instance. See the [OIDC setup guide](./packages/docs/src/self-hosting/oidc-authentication.md).
+- **Docker images on GHCR**: a manual GitHub Actions workflow ([`cd-ghcr-release.yaml`](./.github/workflows/cd-ghcr-release.yaml)) builds the root and rootless images and publishes them to `ghcr.io/nidplays/enclosed-cc`.
+- **Docker build fix**: pnpm is pinned in the Dockerfiles. The unpinned install pulled pnpm 12, which broke the image build.
+
+### Quick start with OIDC
+
+```bash
+docker run -d --name enclosed --restart unless-stopped -p 8787:8787 \
+  -e PUBLIC_IS_AUTHENTICATION_REQUIRED=true \
+  -e AUTHENTICATION_JWT_SECRET=<a-long-random-secret> \
+  -e AUTHENTICATION_OIDC_ENABLED=true \
+  -e AUTHENTICATION_OIDC_PROVIDER_NAME="Pocket ID" \
+  -e AUTHENTICATION_OIDC_ISSUER_URL=https://id.example.com \
+  -e AUTHENTICATION_OIDC_CLIENT_ID=<client-id> \
+  -e AUTHENTICATION_OIDC_CLIENT_SECRET=<client-secret> \
+  -e AUTHENTICATION_OIDC_REDIRECT_URI=https://enclosed.example.com/api/auth/oidc/callback \
+  ghcr.io/nidplays/enclosed-cc:latest
+```
+
+Register `https://enclosed.example.com/api/auth/oidc/callback` as the callback URL in your provider. Leave `AUTHENTICATION_OIDC_CLIENT_SECRET` out for a public client. The image is available once the GHCR release workflow has been run, and a rootless variant is published as `latest-rootless`.
+
 ## Introduction
 
 **Enclosed** is a minimalistic web application designed for sending private and secure notes.
@@ -41,7 +72,7 @@ A live instance is available at [enclosed.cc](https://enclosed.cc).
 - **Configurable Security Options**: Set a password, expiration time, and choose self-destruction after the note is read.
 - **Minimalistic UI**: Simple and intuitive user interface for quick note sharing.
 - **i18n Support**: Available in multiple languages.
-- **Authentication**: Optional email/password authentication to create notes.
+- **Authentication**: Optional email/password authentication to create notes, and OIDC / SSO login *(added in this fork)*.
 - **Dark Mode**: A dark theme for late-night note sharing.
 - **Responsive Design**: Works on all devices, from desktops to mobile phones.
 - **Open Source**: The source code is available under the Apache 2.0 License.

@@ -14,8 +14,9 @@ permissions:
 
 jobs:
   deploy-app-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.workflow_run.conclusion == 'success') }}
     name: Deploy app preview
     steps:
       - name: Download app build artifact
@@ -39,8 +40,9 @@ jobs:
           wranglerVersion: '3'
 
   deploy-docs-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.workflow_run.conclusion == 'success') }}
     name: Deploy docs preview
     steps:
       - name: Download docs build artifact

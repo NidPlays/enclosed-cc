@@ -7,6 +7,8 @@ on:
 
 jobs:
   publish-app-prod:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,6 +45,8 @@ jobs:
           wranglerVersion: '3'
 
   publish-docs-prod:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

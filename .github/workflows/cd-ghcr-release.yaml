@@ -1,0 +1,168 @@
+name: Release Docker images to GHCR (manual)
+
+# Manually build and publish the Docker images to the GitHub Container Registry of the
+# repository running the workflow (ghcr.io/<owner>/<repo>), so forks can ship their own images.
+# Pick the branch or tag to build in the "Run workflow" dropdown of the Actions tab.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image version tag (no v prefix, e.g. 1.16.0-oidc.1)'
+        required: true
+        type: string
+
+      tag_latest:
+        description: 'Also tag the images as latest (and latest-rootless)'
+        required: true
+        type: boolean
+        default: true
+
+      build_rootless:
+        description: 'Also build and push the rootless image (<version>-rootless)'
+        required: true
+        type: boolean
+        default: true
+
+      platforms:
+        description: 'Target platforms (linux/arm/v7 is slow to build through emulation)'
+        required: true
+        type: string
+        default: 'linux/amd64,linux/arm64'
+
+      create_github_release:
+        description: 'Create a GitHub release and tag v<version> on the built commit'
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: ghcr-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  docker-release:
+    name: Build and push images to ghcr.io
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+
+    steps:
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION', expected something like 1.2.3 or 1.2.3-oidc.1 (no v prefix)"
+            exit 1
+          fi
+
+      - name: Compute image name
+        id: image
+        # Registry image names must be lowercase, while owner and repository names may not be
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest,enable=${{ inputs.tag_latest }}
+
+      - name: Rootless image metadata
+        id: meta-rootless
+        if: ${{ inputs.build_rootless }}
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          flavor: |
+            latest=false
+            suffix=-rootless
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest,enable=${{ inputs.tag_latest }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=root
+          cache-to: type=gha,mode=max,scope=root
+
+      - name: Build and push rootless image
+        if: ${{ inputs.build_rootless }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.rootless
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta-rootless.outputs.tags }}
+          labels: ${{ steps.meta-rootless.outputs.labels }}
+          cache-from: type=gha,scope=rootless
+          cache-to: type=gha,mode=max,scope=rootless
+
+      - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          ROOTLESS_TAGS: ${{ steps.meta-rootless.outputs.tags }}
+        run: |
+          {
+            echo "### Published images"
+            echo '```'
+            echo "$TAGS"
+            echo "$ROOTLESS_TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  github-release:
+    name: Create GitHub release
+    needs: docker-release
+    if: ${{ inputs.create_github_release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # The tag is created with GITHUB_TOKEN, so it does not trigger the tag-based cd-docker-release workflow
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          IMAGE: ${{ needs.docker-release.outputs.image }}
+        run: |
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --notes "Docker images: \`docker pull $IMAGE:$VERSION\` (rootless: \`$IMAGE:$VERSION-rootless\`)"

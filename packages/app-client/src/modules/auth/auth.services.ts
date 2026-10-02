@@ -1,6 +1,14 @@
+import { getConfig } from '../config/config.provider';
 import { apiClient } from '../shared/http/http-client';
+import { buildUrl } from '../shared/http/http-client.models';
 
-export { login };
+export { getOidcLoginUrl, login };
+
+function getOidcLoginUrl() {
+  const { baseApiUrl } = getConfig();
+
+  return buildUrl({ path: 'api/auth/oidc/login', baseUrl: baseApiUrl });
+}
 
 async function login({ email, password }: { email: string; password: string }) {
   const { accessToken } = await apiClient<{ accessToken: string }>({

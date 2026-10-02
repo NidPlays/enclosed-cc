@@ -83,6 +83,7 @@ export default defineConfig({
           { text: 'Using Docker Compose', link: '/self-hosting/docker-compose' },
           { text: 'Deploy on other platforms', link: '/self-hosting/other-platforms' },
           { text: 'Configuration', link: '/self-hosting/configuration' },
+          { text: 'OIDC / SSO authentication', link: '/self-hosting/oidc-authentication' },
           { text: 'Troubleshooting', link: '/self-hosting/troubleshooting' },
         ],
       },

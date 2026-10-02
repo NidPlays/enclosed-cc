@@ -2,13 +2,15 @@ import type { ServerInstance } from '../server.types';
 import { z } from 'zod';
 import { validateJsonBody } from '../../shared/validation/validation';
 import { createUserRepository } from '../users/users.repository';
-import { createUnauthorizedError } from './auth.errors';
+import { createPasswordLoginDisabledError, createUnauthorizedError } from './auth.errors';
 import { arePasswordsMatching, createJwtToken } from './auth.services';
+import { registerOidcRoutes } from './oidc/oidc.routes';
 
 export { registerAuthRoutes };
 
 function registerAuthRoutes({ app }: { app: ServerInstance }) {
   setupLoginRoute({ app });
+  registerOidcRoutes({ app });
 }
 
 function setupLoginRoute({ app }: { app: ServerInstance }) {
@@ -21,6 +23,10 @@ function setupLoginRoute({ app }: { app: ServerInstance }) {
     async (context) => {
       const config = context.get('config');
       const { email, password } = context.req.valid('json');
+
+      if (!config.public.isPasswordLoginEnabled) {
+        throw createPasswordLoginDisabledError();
+      }
 
       const { getUserByEmail } = createUserRepository({ config });
 

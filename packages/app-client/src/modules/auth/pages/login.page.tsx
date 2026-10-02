@@ -7,8 +7,9 @@ import { TextField, TextFieldLabel, TextFieldRoot } from '@/modules/ui/component
 import { safely } from '@corentinth/chisels';
 import { useNavigate } from '@solidjs/router';
 import { castArray, sample } from 'lodash-es';
-import { type Component, createSignal, onMount, Show } from 'solid-js';
-import { login } from '../auth.services';
+import { type Component, createSignal, onCleanup, onMount, Show } from 'solid-js';
+import { getOidcCallbackResult } from '../auth.models';
+import { getOidcLoginUrl, login } from '../auth.services';
 import { authStore } from '../auth.store';
 
 const quotations = [
@@ -48,9 +49,35 @@ export const LoginPage: Component = () => {
   const config = getConfig();
   const navigate = useNavigate();
 
-  onMount(() => {
+  const oidcCallbackResult = getOidcCallbackResult({ hash: window.location.hash, search: window.location.search });
+  // Read synchronously so the login form is not flashed while the oidc callback is processed
+  const [getIsCompletingOidcLogin] = createSignal(Boolean(oidcCallbackResult.accessToken));
+  const [getIsRedirectingToOidcProvider, setIsRedirectingToOidcProvider] = createSignal(false);
+
+  // When coming back from the provider with the browser back button, the page may be restored from the bfcache
+  const onPageShow = (event: PageTransitionEvent) => event.persisted && setIsRedirectingToOidcProvider(false);
+  window.addEventListener('pageshow', onPageShow);
+  onCleanup(() => window.removeEventListener('pageshow', onPageShow));
+
+  onMount(async () => {
+    const { accessToken, oidcError } = oidcCallbackResult;
+
+    if (accessToken) {
+      // Remove the token from the url so it does not stay in the browser history
+      window.history.replaceState(null, '', window.location.pathname);
+      await authStore.setAccessToken({ accessToken });
+      window.location.href = authStore.getRedirectUrl() ?? '/';
+      return;
+    }
+
     if (!config.isAuthenticationRequired || authStore.getIsAuthenticated()) {
       navigate('/');
+      return;
+    }
+
+    if (oidcError) {
+      setError({ message: oidcError === 'access-denied' ? t('login.errors.oidc-access-denied') : t('login.errors.oidc-failed') });
+      window.history.replaceState(null, '', window.location.pathname);
     }
   });
 
@@ -106,67 +133,114 @@ export const LoginPage: Component = () => {
 
       <div class="px-6 mt-12 lg:mt-200px flex-1">
         <div class="md:max-w-sm mx-auto">
-          <h1 class="text-lg font-semibold">
-            {t('login.title')}
-          </h1>
-          <div class="text-muted-foreground text-pretty">
-            {t('login.description')}
-          </div>
-
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
-          }}
+          <Show
+            when={!getIsCompletingOidcLogin()}
+            fallback={(
+              <div class="flex items-center gap-2 text-muted-foreground" role="status">
+                <div class="i-tabler-loader-2 animate-spin text-lg"></div>
+                {t('login.oidc-completing')}
+              </div>
+            )}
           >
-            <TextFieldRoot class="my-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.email')}
-              </TextFieldLabel>
-              <TextField
-                type="email"
-                placeholder={t('login.email')}
-                onInput={(e) => {
-                  setEmail(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getEmail()}
-              />
-            </TextFieldRoot>
+            <h1 class="text-lg font-semibold">
+              {t('login.title')}
+            </h1>
+            <div class="text-muted-foreground text-pretty">
+              {t('login.description')}
+            </div>
 
-            <TextFieldRoot class="mt-4">
-              <TextFieldLabel class="sr-only">
-                {t('login.password')}
-              </TextFieldLabel>
-              <TextField
-                type="password"
-                placeholder={t('login.password')}
-                onInput={(e) => {
-                  setPassword(e.currentTarget.value);
-                  setError(null);
-                }}
-                value={getPassword()}
-              />
-            </TextFieldRoot>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+            >
+              <Show when={config.isPasswordLoginEnabled}>
+                <TextFieldRoot class="my-4">
+                  <TextFieldLabel class="sr-only">
+                    {t('login.email')}
+                  </TextFieldLabel>
+                  <TextField
+                    type="email"
+                    placeholder={t('login.email')}
+                    onInput={(e) => {
+                      setEmail(e.currentTarget.value);
+                      setError(null);
+                    }}
+                    value={getEmail()}
+                  />
+                </TextFieldRoot>
 
-            <Button class="mt-4 w-full" variant="default" type="submit">
-              {t('login.submit')}
-            </Button>
+                <TextFieldRoot class="mt-4">
+                  <TextFieldLabel class="sr-only">
+                    {t('login.password')}
+                  </TextFieldLabel>
+                  <TextField
+                    type="password"
+                    placeholder={t('login.password')}
+                    onInput={(e) => {
+                      setPassword(e.currentTarget.value);
+                      setError(null);
+                    }}
+                    value={getPassword()}
+                  />
+                </TextFieldRoot>
 
-            <p class="text-center text-muted-foreground text-sm mt-4">
-              {castArray(t('login.footer')).map(text => (<div>{text}</div>))}
-            </p>
+                <Button class="mt-4 w-full" variant="default" type="submit">
+                  {t('login.submit')}
+                </Button>
+              </Show>
 
-            <Show when={getError()}>
-              {error => (
-                <Alert variant="destructive" class="mt-4">
-                  <AlertDescription>
-                    {error().message}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </Show>
+              <Show when={config.isOidcLoginEnabled}>
+                <Show when={config.isPasswordLoginEnabled}>
+                  <div class="flex items-center gap-2 my-4 text-muted-foreground text-sm">
+                    <div class="h-px flex-1 bg-border"></div>
+                    {t('login.or')}
+                    <div class="h-px flex-1 bg-border"></div>
+                  </div>
+                </Show>
 
-          </form>
+                <Button
+                  as="a"
+                  href={getOidcLoginUrl()}
+                  // Full page navigation to the api, not handled by the client router
+                  rel="external"
+                  class="w-full"
+                  classList={{ 'mt-4': !config.isPasswordLoginEnabled, 'pointer-events-none opacity-70': getIsRedirectingToOidcProvider() }}
+                  variant={config.isPasswordLoginEnabled ? 'secondary' : 'default'}
+                  aria-disabled={getIsRedirectingToOidcProvider()}
+                  onClick={() => setIsRedirectingToOidcProvider(true)}
+                >
+                  <Show
+                    when={getIsRedirectingToOidcProvider()}
+                    fallback={(
+                      <>
+                        <div class="i-tabler-login-2 mr-2"></div>
+                        {t('login.oidc-submit', { provider: config.oidcProviderName })}
+                      </>
+                    )}
+                  >
+                    <div class="i-tabler-loader-2 animate-spin mr-2"></div>
+                    {t('login.oidc-redirecting', { provider: config.oidcProviderName })}
+                  </Show>
+                </Button>
+              </Show>
+
+              <p class="text-center text-muted-foreground text-sm mt-4">
+                {castArray(t('login.footer')).map(text => (<div>{text}</div>))}
+              </p>
+
+              <Show when={getError()}>
+                {error => (
+                  <Alert variant="destructive" class="mt-4">
+                    <AlertDescription>
+                      {error().message}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </Show>
+
+            </form>
+          </Show>
         </div>
       </div>
     </div>

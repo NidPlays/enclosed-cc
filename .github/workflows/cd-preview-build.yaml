@@ -7,6 +7,8 @@ on:
 
 jobs:
   build-app-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     name: Build app and upload build artifact
     steps:
@@ -35,6 +37,8 @@ jobs:
           path: packages/deploy-cloudflare/dist
 
   build-docs-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     name: Build docs and upload build artifact
     steps:
