@@ -14,19 +14,12 @@ permissions:
 
 jobs:
   deploy-app-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.workflow_run.conclusion == 'success') }}
     name: Deploy app preview
-    env:
-      # Forks usually have no Cloudflare credentials: skip the deployment instead of failing
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
-      - name: Skip when Cloudflare is not configured
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
-        run: echo "::notice::CLOUDFLARE_API_TOKEN secret is not set, skipping the app preview deployment"
-
       - name: Download app build artifact
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         uses: actions/download-artifact@v4
         id: preview-app-build-artifact
         with:
@@ -36,7 +29,6 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Deploy preview app to Cloudflare Pages
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         uses: AdrianGonz97/refined-cf-pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -48,19 +40,12 @@ jobs:
           wranglerVersion: '3'
 
   deploy-docs-preview:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.workflow_run.conclusion == 'success') }}
     name: Deploy docs preview
-    env:
-      # Forks usually have no Cloudflare credentials: skip the deployment instead of failing
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
-      - name: Skip when Cloudflare is not configured
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
-        run: echo "::notice::CLOUDFLARE_API_TOKEN secret is not set, skipping the docs preview deployment"
-
       - name: Download docs build artifact
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         uses: actions/download-artifact@v4
         id: preview-docs-build-artifact
         with:
@@ -70,7 +55,6 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Deploy preview docs to Cloudflare Pages
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         uses: AdrianGonz97/refined-cf-pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

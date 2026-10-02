@@ -6,27 +6,9 @@ on:
       - main
 
 jobs:
-  # Forks usually have no Cloudflare credentials: skip the deployments instead of failing
-  check-cloudflare:
-    runs-on: ubuntu-latest
-    name: Check Cloudflare credentials
-    outputs:
-      enabled: ${{ steps.check.outputs.enabled }}
-    steps:
-      - id: check
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::CLOUDFLARE_API_TOKEN secret is not set, skipping the production deployments"
-          fi
-
   publish-app-prod:
-    needs: check-cloudflare
-    if: ${{ needs.check-cloudflare.outputs.enabled == 'true' }}
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,8 +45,8 @@ jobs:
           wranglerVersion: '3'
 
   publish-docs-prod:
-    needs: check-cloudflare
-    if: ${{ needs.check-cloudflare.outputs.enabled == 'true' }}
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
+    if: ${{ github.repository == 'CorentinTh/enclosed' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
