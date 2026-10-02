@@ -326,8 +326,17 @@ export const configDefinition = {
         default: '',
         env: 'AUTHENTICATION_OIDC_ALLOWED_EMAILS',
       },
+      allowedEmailDomains: {
+        doc: 'Comma-separated list of email domains allowed to log in through the OpenID Connect provider (like `example.com`, case insensitive). Combined with `AUTHENTICATION_OIDC_ALLOWED_EMAILS`: a user is allowed if their email or its domain is listed. If both are empty, every user authenticated by the provider is allowed',
+        schema: z
+          .union([z.string(), z.array(z.string())])
+          .transform(value => (typeof value === 'string' ? value.split(',') : value))
+          .transform(values => values.map(value => value.trim().toLowerCase().replace(/^@/, '')).filter(Boolean)),
+        default: '',
+        env: 'AUTHENTICATION_OIDC_ALLOWED_EMAIL_DOMAINS',
+      },
       isUnverifiedEmailAllowed: {
-        doc: 'Whether to accept emails not marked as verified by the OpenID Connect provider (`email_verified` claim) when checking the allowed emails list. Only enable it if users cannot change their email on the provider side (for Pocket ID, prefer enabling the "Emails verified" setting)',
+        doc: 'Whether to accept emails not marked as verified by the OpenID Connect provider (`email_verified` claim missing or not `true`) when checking the allowed emails and domains lists. Only enable it if users cannot change their email on the provider side (for Pocket ID, prefer enabling the "Emails verified" setting)',
         schema: z
           .string()
           .trim()

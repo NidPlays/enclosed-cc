@@ -45,6 +45,8 @@
     "submit": "Login",
     "or": "or",
     "oidc-submit": "Login with {{ provider }}",
+    "oidc-redirecting": "Redirecting to {{ provider }}...",
+    "oidc-completing": "Completing login...",
     "errors": {
       "invalid-credentials": "Invalid email or password.",
       "oidc-access-denied": "Your account is not allowed to access this instance.",

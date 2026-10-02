@@ -121,9 +121,9 @@ function setupOidcCallbackRoute({ app }: { app: ServerInstance }) {
       return redirectToClientLoginWithError({ context, error: 'authentication-failed' });
     }
 
-    const { allowedEmails, isUnverifiedEmailAllowed } = config.authentication.oidc;
+    const { allowedEmails, allowedEmailDomains, isUnverifiedEmailAllowed } = config.authentication.oidc;
 
-    if (!isOidcUserAllowed({ ...user, allowedEmails, isUnverifiedEmailAllowed })) {
+    if (!isOidcUserAllowed({ ...user, allowedEmails, allowedEmailDomains, isUnverifiedEmailAllowed })) {
       logger.warn({ subject: user.subject, email: user.email, isEmailVerified: user.isEmailVerified }, 'OIDC user not allowed to log in');
       return redirectToClientLoginWithError({ context, error: 'access-denied' });
     }

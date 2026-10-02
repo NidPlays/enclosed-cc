@@ -11,7 +11,7 @@ function base64url(value: unknown) {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-function createMockProvider({ email = 'foo@example.com' }: { email?: string } = {}) {
+function createMockProvider({ email = 'foo@example.com', emailVerified = true }: { email?: string; emailVerified?: boolean | null } = {}) {
   const tokenRequests: { body: URLSearchParams; headers: Headers }[] = [];
   let nonce: string | undefined;
 
@@ -35,7 +35,7 @@ function createMockProvider({ email = 'foo@example.com' }: { email?: string } = 
       // The ID token is received directly from the token endpoint over TLS, its signature is not checked (OIDC core 3.1.3.7)
       const idToken = [
         base64url({ alg: 'RS256', typ: 'JWT' }),
-        base64url({ iss: issuer, sub: 'user-1', aud: 'enclosed-client-id', iat: now, exp: now + 60, nonce, email, email_verified: true }),
+        base64url({ iss: issuer, sub: 'user-1', aud: 'enclosed-client-id', iat: now, exp: now + 60, nonce, email, ...(emailVerified === null ? {} : { email_verified: emailVerified }) }),
         'signature',
       ].join('.');
 
@@ -54,7 +54,17 @@ function createMockProvider({ email = 'foo@example.com' }: { email?: string } = 
   };
 }
 
-function createApp({ allowedEmails = [], isOidcLoginEnabled = true }: { allowedEmails?: string[]; isOidcLoginEnabled?: boolean } = {}) {
+function createApp({
+  allowedEmails = [],
+  allowedEmailDomains = [],
+  isOidcLoginEnabled = true,
+  clientSecret = 'client-secret',
+}: {
+  allowedEmails?: string[];
+  allowedEmailDomains?: string[];
+  isOidcLoginEnabled?: boolean;
+  clientSecret?: string;
+} = {}) {
   const config = overrideConfig({
     public: {
       isAuthenticationRequired: true,
@@ -65,9 +75,10 @@ function createApp({ allowedEmails = [], isOidcLoginEnabled = true }: { allowedE
       oidc: {
         issuerUrl: issuer,
         clientId: 'enclosed-client-id',
-        clientSecret: 'client-secret',
+        clientSecret,
         redirectUri: 'https://enclosed.example.com/api/auth/oidc/callback',
         allowedEmails,
+        allowedEmailDomains,
       },
     },
   });
@@ -84,6 +95,17 @@ async function startLogin({ app }: { app: ReturnType<typeof createApp>['app'] })
   const cookie = response.headers.get('Set-Cookie')!.split(';')[0];
 
   return { response, authorizationUrl, cookie };
+}
+
+async function completeLogin({ app, provider }: { app: ReturnType<typeof createApp>['app']; provider: ReturnType<typeof createMockProvider> }) {
+  const { authorizationUrl, cookie } = await startLogin({ app });
+  provider.setNonce(authorizationUrl.searchParams.get('nonce')!);
+
+  const response = await app.request(`/api/auth/oidc/callback?code=auth-code&state=${authorizationUrl.searchParams.get('state')}`, {
+    headers: { Cookie: cookie },
+  });
+
+  return { location: response.headers.get('Location')! };
 }
 
 describe('e2e', () => {
@@ -183,6 +205,43 @@ describe('e2e', () => {
       });
 
       expect(response.headers.get('Location')).to.eql('/login?oidcError=access-denied');
+    });
+
+    test('when the provider does not send the email_verified claim, the email is considered unverified for the allowlist', async () => {
+      provider = createMockProvider({ emailVerified: null });
+      vi.stubGlobal('fetch', provider.fetchMock);
+
+      const { app } = createApp({ allowedEmails: ['foo@example.com'] });
+      const { location } = await completeLogin({ app, provider });
+
+      expect(location).to.eql('/login?oidcError=access-denied');
+    });
+
+    test('when the user email domain is in the allowed domains list, the user can log in', async () => {
+      const { app } = createApp({ allowedEmailDomains: ['example.com'] });
+      const { location } = await completeLogin({ app, provider });
+
+      expect(location.startsWith('/login#accessToken=')).to.eql(true);
+    });
+
+    test('when the user email domain is not in the allowed domains list, the access is denied', async () => {
+      const { app } = createApp({ allowedEmailDomains: ['corp.com'] });
+      const { location } = await completeLogin({ app, provider });
+
+      expect(location).to.eql('/login?oidcError=access-denied');
+    });
+
+    test('with a public client (no client secret), the client id is sent in the token request body without Authorization header', async () => {
+      const { app } = createApp({ clientSecret: '' });
+      const { location } = await completeLogin({ app, provider });
+
+      expect(location.startsWith('/login#accessToken=')).to.eql(true);
+
+      const [{ body, headers }] = provider.tokenRequests;
+      expect(headers.get('authorization')).to.eql(null);
+      expect(body.get('client_id')).to.eql('enclosed-client-id');
+      expect(body.get('client_secret')).to.eql(null);
+      expect(body.get('code_verifier')).to.be.a('string');
     });
 
     test('when oidc login is disabled, the oidc routes are not available', async () => {

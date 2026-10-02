@@ -20,7 +20,26 @@ Register a new OIDC client (sometimes called an application) in your provider wi
 - **Scopes**: `openid email profile`
 - **PKCE**: enabled (Enclosed always uses `S256`)
 
-Then copy the client ID and client secret.
+Then copy the client ID and client secret. If your provider supports public clients (like Pocket ID's "Public client" option), you can use one instead and leave `AUTHENTICATION_OIDC_CLIENT_SECRET` empty: PKCE protects the flow.
+
+## Controlling who can log in
+
+::: tip Recommended: manage access in your provider
+Enclosed lets in anyone the provider lets through, so the best place to control access is the provider itself, where users and groups are already managed. Changes apply immediately, without restarting Enclosed.
+
+With **Pocket ID**, create a user group (for example `enclosed-users`), add the allowed users to it, then select it in the **Allowed User Groups** of the Enclosed OIDC client. Other users are stopped by Pocket ID with "You're not allowed to access this service" and never reach Enclosed.
+
+Most providers have an equivalent: Authelia access control rules, Authentik application bindings, Keycloak client roles, and so on.
+:::
+
+If your provider cannot restrict access per application (for example, a shared or public provider like Google, where anyone with an account can authenticate), use Enclosed's own allowlists:
+
+- `AUTHENTICATION_OIDC_ALLOWED_EMAILS`: a list of allowed emails.
+- `AUTHENTICATION_OIDC_ALLOWED_EMAIL_DOMAINS`: a list of allowed email domains (an exact match, so `example.com` does not allow `sub.example.com`).
+
+A user is allowed if their email **or** its domain is listed. If both lists are empty, the allowlists are disabled.
+
+Allowlists only trust emails the provider marks as verified (`email_verified` set to `true`). A token without the claim is treated as unverified. If your provider does not verify emails, and users cannot change their own email, set `AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS=true`.
 
 ## Enclosed configuration
 
@@ -35,8 +54,9 @@ AUTHENTICATION_OIDC_CLIENT_ID=<client-id>
 AUTHENTICATION_OIDC_CLIENT_SECRET=<client-secret>
 AUTHENTICATION_OIDC_REDIRECT_URI=https://enclosed.example.com/api/auth/oidc/callback
 
-# Optional: only allow some users (case insensitive)
-AUTHENTICATION_OIDC_ALLOWED_EMAILS=alice@example.com,bob@example.com
+# Optional, prefer restricting access in the provider (see above)
+# AUTHENTICATION_OIDC_ALLOWED_EMAILS=alice@example.com,bob@example.com
+# AUTHENTICATION_OIDC_ALLOWED_EMAIL_DOMAINS=example.com
 
 # Optional: disable the email/password form to only use the provider
 AUTHENTICATION_PASSWORD_LOGIN_ENABLED=false
@@ -51,12 +71,13 @@ AUTHENTICATION_PASSWORD_LOGIN_ENABLED=false
 | `AUTHENTICATION_OIDC_REDIRECT_URI` | The callback URL registered in the provider. Strongly recommended behind a reverse proxy; otherwise it is derived from the incoming request. |
 | `AUTHENTICATION_OIDC_SCOPES` | The requested scopes (`openid email profile` by default). |
 | `AUTHENTICATION_OIDC_TOKEN_ENDPOINT_AUTH_METHOD` | `client_secret_basic` (default) or `client_secret_post`. |
-| `AUTHENTICATION_OIDC_ALLOWED_EMAILS` | Comma-separated list of allowed emails. If empty, every user who can log in to the provider can use Enclosed, so limit access on the provider side (for example with Pocket ID's allowed user groups). |
-| `AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS` | When the allowlist is used, accept emails the provider does not mark as verified (`false` by default). |
+| `AUTHENTICATION_OIDC_ALLOWED_EMAILS` | Comma-separated list of allowed emails. Prefer restricting access in the provider. |
+| `AUTHENTICATION_OIDC_ALLOWED_EMAIL_DOMAINS` | Comma-separated list of allowed email domains. Prefer restricting access in the provider. |
+| `AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS` | When an allowlist is used, accept emails the provider does not mark as verified (`false` by default). |
 | `AUTHENTICATION_PASSWORD_LOGIN_ENABLED` | Set it to `false` to hide the email/password form and reject password logins. |
 
-::: tip Pocket ID
-Pocket ID marks emails as unverified by default. If you use `AUTHENTICATION_OIDC_ALLOWED_EMAILS`, either enable **Emails verified** in Pocket ID's application configuration (recommended, because users cannot change their own email there) or set `AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS=true`.
+::: tip Pocket ID and the allowlists
+Pocket ID marks emails as unverified by default. If you use Enclosed's allowlists with Pocket ID (rather than its Allowed User Groups), either enable **Emails verified** in Pocket ID's application configuration (recommended) or set `AUTHENTICATION_OIDC_ALLOW_UNVERIFIED_EMAILS=true`.
 :::
 
 ::: warning

@@ -161,6 +161,7 @@ async function exchangeAuthorizationCode({
   return {
     subject: claims.sub,
     email: typeof claims.email === 'string' ? claims.email : undefined,
-    isEmailVerified: claims.email_verified !== false,
+    // A missing claim means the provider does not vouch for the email
+    isEmailVerified: claims.email_verified === true,
   };
 }
