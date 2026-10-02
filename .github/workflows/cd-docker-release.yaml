@@ -37,8 +37,9 @@ permissions:
 
 jobs:
   publish-crypto:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     name: Publish @enclosed/crypto to npm
-    if: ${{ github.event.inputs.publish_lib || github.event_name == 'push' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.inputs.publish_lib || github.event_name == 'push') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,8 +72,9 @@ jobs:
 
 
   publish-lib:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     name: Publish @enclosed/lib to npm
-    if: ${{ github.event.inputs.publish_lib || github.event_name == 'push' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.inputs.publish_lib || github.event_name == 'push') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,8 +106,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-cli:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     name: Publish @enclosed/cli to npm
-    if: ${{ github.event.inputs.publish_cli || github.event_name == 'push' }}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.inputs.publish_cli || github.event_name == 'push') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -137,8 +140,9 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   docker-release:
+    # Upstream only: deploys/publishes to the upstream accounts (Cloudflare, Docker Hub, npm), skipped on forks
     name: Release Docker images
-    if: ${{ github.event.inputs.release_docker || github.event_name == 'push'}}
+    if: ${{ github.repository == 'CorentinTh/enclosed' && (github.event.inputs.release_docker || github.event_name == 'push') }}
     runs-on: ubuntu-latest
     steps:
       - name: Get release version from tag
